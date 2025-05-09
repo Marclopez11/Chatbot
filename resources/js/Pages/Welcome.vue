@@ -94,12 +94,12 @@ onMounted(() => {
                 <path d="M0 80H40V120H0V80Z" fill="#FFFFFF"/>
                 <path d="M40 80H80V120H40V80Z" fill="#FFFFFF"/>
                 <path d="M80 80H120V120H80V80Z" fill="#FFFFFF"/>
-                <path d="M120 80H160V120H120V80Z" fill="#0066CC"/>
+                <path d="M120 80H160V120H120V80Z" fill="#900000"/>
                 <path d="M0 120H40V160H0V120Z" fill="#FFFFFF"/>
                 <path d="M40 120H80V160H40V120Z" fill="#FFFFFF"/>
-                <path d="M80 120H120V160H80V120Z" fill="#0066CC"/>
-                <path d="M120 120H160V160H120V120Z" fill="#0066CC"/>
-            </svg>
+                <path d="M80 120H120V160H80V120Z" fill="#900000"/>
+                <path d="M120 120H160V160H120V120Z" fill="#900000"/>
+                        </svg>
         </div>
         
         <!-- Main content container -->
@@ -154,41 +154,41 @@ onMounted(() => {
 
             <!-- Navigation links -->
             <nav v-if="canLogin" class="login-links">
-                <Link
-                    v-if="$page.props.auth.user"
-                    :href="route('dashboard')"
+                        <Link
+                            v-if="$page.props.auth.user"
+                            :href="route('dashboard')"
                     class="nav-link dashboard-link"
-                >
+                        >
                     Tauler de control
-                </Link>
+                        </Link>
 
-                <template v-else>
-                    <Link
-                        :href="route('login')"
+                        <template v-else>
+                            <Link
+                                :href="route('login')"
                         class="nav-link login-link"
-                    >
+                            >
                         Iniciar sessió
-                    </Link>
+                            </Link>
 
-                    <Link
-                        v-if="canRegister"
-                        :href="route('register')"
+                            <Link
+                                v-if="canRegister"
+                                :href="route('register')"
                         class="nav-link register-link"
-                    >
+                            >
                         Registre
-                    </Link>
-                </template>
-            </nav>
-        </div>
-        
+                            </Link>
+                        </template>
+                    </nav>
+                            </div>
+
         <!-- Version info with modern styling -->
         <div class="version-info">
             Laravel v{{ laravelVersion }} | PHP v{{ phpVersion }}
-        </div>
-        
+                                    </div>
+
         <!-- Include the chatbot component -->
         <ChatBot />
-    </div>
+                                    </div>
 </template>
 
 <style scoped>
@@ -198,7 +198,7 @@ onMounted(() => {
 .welcome-container {
     min-height: 100vh;
     width: 100%;
-    background-color: #0a0f25;
+    background-color: #1a1a1a;
     color: white;
     font-family: 'Exo 2', sans-serif;
     position: relative;
@@ -217,9 +217,9 @@ onMounted(() => {
     width: 100%;
     height: 100%;
     background-image: 
-        radial-gradient(circle at 10% 20%, rgba(0, 102, 204, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 90% 80%, rgba(0, 102, 204, 0.1) 0%, transparent 50%),
-        url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10,10 L90,10 M10,20 L30,20 M70,20 L90,20 M10,30 L20,30 M50,30 L90,30 M10,40 L40,40 M60,40 L90,40 M10,50 L50,50 M70,50 L90,50 M10,60 L30,60 M50,60 L90,60 M10,70 L40,70 M70,70 L90,70 M10,80 L20,80 M60,80 L90,80 M10,90 L90,90' stroke='rgba(0,102,204,0.15)' stroke-width='0.5'/%3E%3C/svg%3E");
+        radial-gradient(circle at 10% 20%, rgba(144, 0, 0, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 90% 80%, rgba(144, 0, 0, 0.1) 0%, transparent 50%),
+        url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10,10 L90,10 M10,20 L30,20 M70,20 L90,20 M10,30 L20,30 M50,30 L90,30 M10,40 L40,40 M60,40 L90,40 M10,50 L50,50 M70,50 L90,50 M10,60 L30,60 M50,60 L90,60 M10,70 L40,70 M70,70 L90,70 M10,80 L20,80 M60,80 L90,80 M10,90 L90,90' stroke='rgba(144,0,0,0.15)' stroke-width='0.5'/%3E%3C/svg%3E");
     opacity: 0.7;
     z-index: 0;
 }
@@ -228,8 +228,8 @@ onMounted(() => {
     position: absolute;
     width: 100%;
     height: 100%;
-    background-image: linear-gradient(rgba(0, 102, 204, 0.1) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(0, 102, 204, 0.1) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(144, 0, 0, 0.1) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(144, 0, 0, 0.1) 1px, transparent 1px);
     background-size: 50px 50px;
     z-index: 0;
 }
@@ -265,13 +265,13 @@ onMounted(() => {
     height: 60px;
     z-index: 2;
     opacity: 0.8;
-    filter: drop-shadow(0 0 10px rgba(0, 102, 204, 0.8));
+    filter: drop-shadow(0 0 10px rgba(144, 0, 0, 0.8));
     animation: pulse 5s infinite alternate;
 }
 
 @keyframes pulse {
-    0% { filter: drop-shadow(0 0 10px rgba(0, 102, 204, 0.5)); }
-    100% { filter: drop-shadow(0 0 15px rgba(0, 102, 204, 0.9)); }
+    0% { filter: drop-shadow(0 0 10px rgba(144, 0, 0, 0.5)); }
+    100% { filter: drop-shadow(0 0 15px rgba(144, 0, 0, 0.9)); }
 }
 
 /* Robot styling */
@@ -299,12 +299,12 @@ onMounted(() => {
 .robot-head {
     width: 120px;
     height: 100px;
-    background: linear-gradient(135deg, #0066CC 0%, #004C99 100%);
+    background: linear-gradient(135deg, #900000 0%, #700000 100%);
     border-radius: 25px 25px 15px 15px;
     position: absolute;
     top: 20px;
     left: 70px;
-    box-shadow: 0 0 20px rgba(0, 102, 204, 0.7);
+    box-shadow: 0 0 20px rgba(144, 0, 0, 0.7);
     overflow: hidden;
     z-index: 2;
 }
@@ -340,7 +340,7 @@ onMounted(() => {
     position: absolute;
     width: 12px;
     height: 12px;
-    background: #0a0f25;
+    background: #1a1a1a;
     border-radius: 50%;
     top: 50%;
     left: 50%;
@@ -398,12 +398,12 @@ onMounted(() => {
 .robot-body {
     width: 150px;
     height: 110px;
-    background: linear-gradient(to bottom, #0066CC, #004080);
+    background: linear-gradient(to bottom, #900000, #700000);
     position: absolute;
     top: 110px;
     left: 55px;
     border-radius: 15px;
-    box-shadow: 0 5px 20px rgba(0, 64, 128, 0.7);
+    box-shadow: 0 5px 20px rgba(100, 0, 0, 0.7);
     overflow: hidden;
     z-index: 1;
 }
@@ -464,7 +464,7 @@ onMounted(() => {
 .robot-base {
     width: 180px;
     height: 25px;
-    background: linear-gradient(to bottom, #004080, #002040);
+    background: linear-gradient(to bottom, #700000, #500000);
     position: absolute;
     top: 220px;
     left: 40px;
@@ -477,9 +477,9 @@ onMounted(() => {
 .hologram-projector {
     width: 60px;
     height: 10px;
-    background: rgba(0, 102, 204, 0.5);
+    background: rgba(144, 0, 0, 0.5);
     border-radius: 5px;
-    box-shadow: 0 0 15px rgba(0, 102, 204, 0.8);
+    box-shadow: 0 0 15px rgba(144, 0, 0, 0.8);
 }
 
 .hologram-projector::before,
@@ -488,7 +488,7 @@ onMounted(() => {
     position: absolute;
     width: 180px;
     height: 40px;
-    background: rgba(0, 102, 204, 0.05);
+    background: rgba(144, 0, 0, 0.05);
     transform-origin: center;
     transform: translateY(-130px);
     border-radius: 50%;
@@ -513,11 +513,11 @@ onMounted(() => {
     font-size: 3.5rem;
     font-weight: 700;
     margin-bottom: 1.5rem;
-    background: linear-gradient(to right, #FFFFFF 0%, #0066CC 100%);
+    background: linear-gradient(to right, #FFFFFF 0%, #900000 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     position: relative;
-    text-shadow: 0 2px 10px rgba(0, 102, 204, 0.4);
+    text-shadow: 0 2px 10px rgba(144, 0, 0, 0.4);
 }
 
 .title::after {
@@ -525,7 +525,7 @@ onMounted(() => {
     position: absolute;
     width: 100%;
     height: 3px;
-    background: linear-gradient(to right, transparent, #0066CC, transparent);
+    background: linear-gradient(to right, transparent, #900000, transparent);
     bottom: -10px;
     left: 0;
 }
@@ -555,8 +555,8 @@ onMounted(() => {
 .interface-element {
     width: 120px;
     height: 40px;
-    background: rgba(0, 102, 204, 0.15);
-    border: 1px solid rgba(0, 102, 204, 0.3);
+    background: rgba(144, 0, 0, 0.15);
+    border: 1px solid rgba(144, 0, 0, 0.3);
     border-radius: 5px;
     position: relative;
     overflow: hidden;
@@ -567,7 +567,7 @@ onMounted(() => {
     position: absolute;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(0, 102, 204, 0.2), transparent);
+    background: linear-gradient(90deg, transparent, rgba(144, 0, 0, 0.2), transparent);
     animation: shimmer 3s infinite;
 }
 
@@ -576,19 +576,19 @@ onMounted(() => {
     position: absolute;
     width: 80%;
     height: 4px;
-    background: #0066CC;
+    background: #900000;
     top: 50%;
     left: 10%;
     transform: translateY(-50%);
     border-radius: 2px;
-    box-shadow: 0 0 10px rgba(0, 102, 204, 0.8);
+    box-shadow: 0 0 10px rgba(144, 0, 0, 0.8);
 }
 
 .interface-circle {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    border: 2px solid rgba(0, 102, 204, 0.5);
+    border: 2px solid rgba(144, 0, 0, 0.5);
     position: relative;
     display: flex;
     align-items: center;
@@ -600,7 +600,7 @@ onMounted(() => {
     content: '';
     position: absolute;
     border-radius: 50%;
-    background: rgba(0, 102, 204, 0.2);
+    background: rgba(144, 0, 0, 0.2);
 }
 
 .interface-circle::before {
@@ -612,7 +612,7 @@ onMounted(() => {
 .interface-circle::after {
     width: 20px;
     height: 20px;
-    background: #0066CC;
+    background: #900000;
     animation: pulse 2s infinite alternate-reverse;
 }
 
@@ -630,7 +630,7 @@ onMounted(() => {
 
 .cta-container p {
     font-size: 1.1rem;
-    color: #A0D2FF;
+    color: #FFCDC9;
     margin-bottom: 1rem;
 }
 
@@ -638,7 +638,7 @@ onMounted(() => {
     width: 40px;
     height: 40px;
     margin: 0 auto;
-    color: #0066CC;
+    color: #900000;
     animation: bounceArrow 2s infinite;
 }
 
@@ -680,25 +680,25 @@ onMounted(() => {
 }
 
 .dashboard-link {
-    background: rgba(0, 102, 204, 0.2);
-    border: 1px solid #0066CC;
+    background: rgba(144, 0, 0, 0.2);
+    border: 1px solid #900000;
     color: white;
 }
 
 .dashboard-link:hover {
-    background: rgba(0, 102, 204, 0.3);
-    box-shadow: 0 0 15px rgba(0, 102, 204, 0.5);
+    background: rgba(144, 0, 0, 0.3);
+    box-shadow: 0 0 15px rgba(144, 0, 0, 0.5);
 }
 
 .login-link {
-    background: rgba(0, 102, 204, 0.2);
-    border: 1px solid #0066CC;
+    background: rgba(144, 0, 0, 0.2);
+    border: 1px solid #900000;
     color: white;
 }
 
 .login-link:hover {
-    background: rgba(0, 102, 204, 0.3);
-    box-shadow: 0 0 15px rgba(0, 102, 204, 0.5);
+    background: rgba(144, 0, 0, 0.3);
+    box-shadow: 0 0 15px rgba(144, 0, 0, 0.5);
 }
 
 .register-link {
@@ -718,7 +718,7 @@ onMounted(() => {
     width: 280px;
     height: 200px;
     background: rgba(10, 15, 37, 0.7);
-    border: 1px solid rgba(0, 102, 204, 0.5);
+    border: 1px solid rgba(144, 0, 0, 0.5);
     border-radius: 8px;
     padding: 1rem;
     z-index: 1;
@@ -726,7 +726,7 @@ onMounted(() => {
     flex-direction: column;
     gap: 0.5rem;
     backdrop-filter: blur(5px);
-    box-shadow: 0 0 20px rgba(0, 102, 204, 0.3);
+    box-shadow: 0 0 20px rgba(144, 0, 0, 0.3);
 }
 
 .left-screen {
@@ -745,17 +745,17 @@ onMounted(() => {
     display: flex;
     align-items: center;
     margin-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(0, 102, 204, 0.3);
+    border-bottom: 1px solid rgba(144, 0, 0, 0.3);
     padding-bottom: 0.5rem;
 }
 
 .screen-indicator {
     width: 10px;
     height: 10px;
-    background: #0066CC;
+    background: #900000;
     border-radius: 50%;
     margin-right: 0.5rem;
-    box-shadow: 0 0 10px #0066CC;
+    box-shadow: 0 0 10px #900000;
     animation: blink 2s infinite alternate;
 }
 
@@ -763,7 +763,7 @@ onMounted(() => {
     font-size: 0.85rem;
     font-weight: 600;
     letter-spacing: 1px;
-    color: #0066CC;
+    color: #900000;
 }
 
 .data-content {
@@ -775,7 +775,7 @@ onMounted(() => {
 
 .data-line {
     height: 10px;
-    background: rgba(0, 102, 204, 0.1);
+    background: rgba(144, 0, 0, 0.1);
     border-radius: 3px;
     position: relative;
     overflow: hidden;
@@ -785,7 +785,7 @@ onMounted(() => {
     content: '';
     position: absolute;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(0, 102, 204, 0.5), transparent);
+    background: linear-gradient(90deg, transparent, rgba(144, 0, 0, 0.5), transparent);
     animation: dataFlow 3s infinite;
     width: 50%;
 }
@@ -819,7 +819,7 @@ onMounted(() => {
     text-align: center;
     font-size: 0.8rem;
     opacity: 0.6;
-    color: #A0D2FF;
+    color: #FFCDC9;
     z-index: 2;
 }
 
