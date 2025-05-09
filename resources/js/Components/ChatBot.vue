@@ -188,6 +188,42 @@ onMounted(() => {
   onUnmounted(() => {
     document.removeEventListener('messagesLoaded', handleMessagesLoaded);
   });
+
+  // Corregir listas al montar
+  nextTick(() => {
+    fixListsRendering();
+  });
+
+  // Agregar observer para procesar negritas en mensajes nuevos
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'childList') {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === 1) {
+            // Si es un mensaje del bot, procesar sus nodos de texto
+            if (node.classList && node.classList.contains('message-wrapper')) {
+              const messageContent = node.querySelector('.message');
+              if (messageContent) {
+                processTextNodes(messageContent);
+              }
+            }
+          }
+        });
+      }
+    });
+  });
+  
+  if (messagesContainer.value) {
+    observer.observe(messagesContainer.value, {
+      childList: true,
+      subtree: true
+    });
+  }
+  
+  // Limpiar observer cuando se desmonta el componente
+  onUnmounted(() => {
+    observer.disconnect();
+  });
 });
 
 // Nueva función para scroll sin animación
@@ -316,6 +352,8 @@ watch(() => displayedMessages.value.length, () => {
   // Scroll instantáneo cuando hay nuevos mensajes
   nextTick(() => {
     scrollToBottomWithoutAnimation();
+    // Forzar la corrección de listas
+    fixListsRendering();
   });
   
   // Si el chat está cerrado y llegó un mensaje del bot, marcar como no leído
@@ -331,20 +369,8 @@ watch(() => displayedMessages.value.length, () => {
 onUpdated(() => {
   if (isOpen.value && displayedMessages.value.length > 0) {
     scrollToBottomWithoutAnimation();
-  }
-});
-
-// MutationObserver para detectar cambios en el DOM del contenedor de mensajes
-onMounted(() => {
-  if (typeof MutationObserver !== 'undefined' && messagesContainer.value) {
-    const observer = new MutationObserver(() => {
-      scrollToBottomWithoutAnimation();
-    });
-    
-    observer.observe(messagesContainer.value, {
-      childList: true,
-      subtree: true
-    });
+    // Corregir listas cada vez que se actualiza el componente
+    fixListsRendering();
   }
 });
 
@@ -353,106 +379,160 @@ function formatMessage(content) {
   if (!content) return '';
   
   try {
-    // Pre-procesar el texto para mejorar el formateo de listas con días
-    // Este paso es crucial para textos que vienen sin formato Markdown apropiado
-    content = preprocessEventLists(content);
+    // Reemplazos directos antes de cualquier procesamiento
+    // 1. Procesamos negritas
+    let processedContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     
-    // Aplicar formato Markdown con configuración para preservar espacios
-    marked.setOptions({
-      headerIds: false,
-      mangle: false,
-      breaks: true,     // Convertir saltos de línea en <br>
-      gfm: true,        // GitHub Flavored Markdown para mejor compatibilidad
-      smartLists: true, // Listas más inteligentes
-      xhtml: true       // Cerrar tags (xhtml compliant)
-    });
+    // 2. Convertir directamente a HTML - Enfoque más radical y directo
     
-    // Aplicar formato Markdown
-    let html = marked(content);
+    // Capturar el patrón de bullet points y sublistas
+    const lines = processedContent.split('\n');
+    let htmlContent = '';
+    let inBulletList = false;
+    let inNumberedList = false;
+    let indentLevel = 0;
     
-    // Sanitizar HTML para evitar XSS
-    if (typeof DOMPurify !== 'undefined') {
-      html = DOMPurify.sanitize(html, {
-        ADD_ATTR: ['target'], // Permitir atributo target para enlaces
-        ALLOW_DATA_ATTR: true // Permitir atributos data-*
-      });
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      const indentMatch = lines[i].match(/^(\s*)/)[0].length;
+      const isNewLine = line === '';
+      
+      // Detectar si es un bullet point (- texto)
+      if (line.startsWith('- ')) {
+        const content = line.substring(2);
+        
+        // Si es el primer item de la lista
+        if (!inBulletList) {
+          // Cerrar lista numerada si está abierta
+          if (inNumberedList) {
+            htmlContent += '</ol>\n';
+            inNumberedList = false;
+          }
+          
+          htmlContent += '<ul class="lista-custom">\n';
+          inBulletList = true;
+          indentLevel = indentMatch;
+        } 
+        // Si es un subnivel (más indentado que el nivel actual)
+        else if (indentMatch > indentLevel) {
+          htmlContent += '<ul class="sublista-custom">\n';
+          indentLevel = indentMatch;
+        } 
+        // Si volvemos a un nivel superior
+        else if (indentMatch < indentLevel && inBulletList) {
+          const levelDiff = Math.floor((indentLevel - indentMatch) / 2);
+          for (let j = 0; j < levelDiff; j++) {
+            htmlContent += '</ul>\n';
+          }
+          indentLevel = indentMatch;
+        }
+        
+        htmlContent += `<li class="item-custom">${content}</li>\n`;
+      }
+      // Detectar si es un elemento numerado (1. texto)
+      else if (/^\d+\.\s+/.test(line)) {
+        const num = line.match(/^\d+/)[0];
+        const content = line.replace(/^\d+\.\s+/, '');
+        
+        // Si es el primer item de la lista numerada
+        if (!inNumberedList) {
+          // Cerrar lista de bullets si está abierta
+          if (inBulletList) {
+            htmlContent += '</ul>\n';
+            inBulletList = false;
+          }
+          
+          htmlContent += '<ol class="lista-numerada-custom">\n';
+          inNumberedList = true;
+          indentLevel = indentMatch;
+        } 
+        // Si es un subnivel (más indentado que el nivel actual)
+        else if (indentMatch > indentLevel) {
+          htmlContent += '<ol class="sublista-numerada-custom">\n';
+          indentLevel = indentMatch;
+        } 
+        // Si volvemos a un nivel superior
+        else if (indentMatch < indentLevel && inNumberedList) {
+          const levelDiff = Math.floor((indentLevel - indentMatch) / 2);
+          for (let j = 0; j < levelDiff; j++) {
+            htmlContent += '</ol>\n';
+          }
+          indentLevel = indentMatch;
+        }
+        
+        htmlContent += `<li class="item-numerado-custom" value="${num}">${content}</li>\n`;
+      }
+      // Si no es un bullet point pero estamos en una lista
+      else if ((inBulletList || inNumberedList) && isNewLine) {
+        // Línea vacía, mantenemos la lista
+        htmlContent += '\n';
+      } 
+      else if (inBulletList) {
+        // Cerramos todas las listas de bullets abiertas
+        for (let j = 0; j <= Math.floor(indentLevel / 2); j++) {
+          htmlContent += '</ul>\n';
+        }
+        inBulletList = false;
+        indentLevel = 0;
+        
+        // Añadir la línea actual
+        htmlContent += `<p>${line}</p>\n`;
+      }
+      else if (inNumberedList) {
+        // Cerramos todas las listas numeradas abiertas
+        for (let j = 0; j <= Math.floor(indentLevel / 2); j++) {
+          htmlContent += '</ol>\n';
+        }
+        inNumberedList = false;
+        indentLevel = 0;
+        
+        // Añadir la línea actual
+        htmlContent += `<p>${line}</p>\n`;
+      }
+      else {
+        // Línea normal, la añadimos como párrafo
+        htmlContent += `<p>${line}</p>\n`;
+      }
     }
     
-    // Post-procesamiento para mejorar la estructura visual del HTML generado
-    html = postprocessHTML(html);
+    // Cerrar listas abiertas
+    if (inBulletList) {
+      for (let j = 0; j <= Math.floor(indentLevel / 2); j++) {
+        htmlContent += '</ul>\n';
+      }
+    }
     
-    return html;
+    if (inNumberedList) {
+      for (let j = 0; j <= Math.floor(indentLevel / 2); j++) {
+        htmlContent += '</ol>\n';
+      }
+    }
+    
+    // Aplicar estilos directamente en el HTML
+    htmlContent = htmlContent.replace(/<ul class="lista-custom">/g, 
+      '<ul style="display:block !important; list-style-type:disc !important; margin-left:8px !important; padding-left:8px !important;">');
+    
+    htmlContent = htmlContent.replace(/<ul class="sublista-custom">/g, 
+      '<ul style="display:block !important; list-style-type:circle !important; margin-left:4px !important; padding-left:8px !important; border-left:1px solid rgba(144,0,0,0.1);">');
+    
+    htmlContent = htmlContent.replace(/<li class="item-custom">/g, 
+      '<li style="display:list-item !important; margin-bottom:6px !important;">');
+    
+    htmlContent = htmlContent.replace(/<ol class="lista-numerada-custom">/g, 
+      '<ol style="display:block !important; list-style-type:decimal !important; margin-left:8px !important; padding-left:8px !important;">');
+    
+    htmlContent = htmlContent.replace(/<ol class="sublista-numerada-custom">/g, 
+      '<ol style="display:block !important; list-style-type:decimal !important; margin-left:4px !important; padding-left:8px !important; border-left:1px solid rgba(144,0,0,0.1);">');
+    
+    htmlContent = htmlContent.replace(/<li class="item-numerado-custom"/g, 
+      '<li style="display:list-item !important; margin-bottom:6px !important;"');
+    
+    return htmlContent;
   } catch (e) {
     console.error('Error al formatear mensaje:', e);
-    // En caso de error, aplicar formato básico para mantener los saltos de línea
-    return content.replace(/\n/g, '<br>');
+    // En caso de error, aplicar formato básico 
+    return `<div style="white-space:pre-wrap;">${content.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight:700 !important; color:#900000 !important;">$1</strong>')}</div>`;
   }
-}
-
-// Función para pre-procesar textos con formato de eventos
-function preprocessEventLists(text) {
-  // Si no contiene ningún formato de eventos, devolver tal cual
-  if (!text.includes('Lugar:') && !text.includes('Descripción:')) {
-    return text;
-  }
-  
-  // Asegurar que las líneas de "Día:" tienen formato de lista Markdown
-  const lines = text.split('\n');
-  let processed = [];
-  
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
-    
-    // Detectar líneas de día de la semana (e.g., "Lunes: Formación...")
-    if (/^(?:Lunes|Martes|Miércoles|Jueves|Viernes|Sábado|Domingo):/i.test(line) && 
-        !line.startsWith('-') && !line.startsWith('*')) {
-      // Si la línea no tiene formato de lista, añadirlo
-      processed.push(`- **${line}**`);
-    } 
-    // Detectar líneas de detalles (Lugar, Descripción)
-    else if (line.startsWith('Lugar:') || line.startsWith('Descripción:')) {
-      // Formatear como sublista con guiones
-      processed.push(`  - **${line.split(':')[0]}:** ${line.split(':').slice(1).join(':').trim()}`);
-    } 
-    // Cualquier otra línea, mantenerla igual
-    else {
-      processed.push(line);
-    }
-  }
-  
-  return processed.join('\n');
-}
-
-// Función para post-procesar el HTML y mejorar la estructura visual
-function postprocessHTML(html) {
-  // Reemplazar títulos de secciones con versiones más estilizadas
-  html = html.replace(/<h3>(.*?)<\/h3>/g, '<div class="section-title">$1</div>');
-  
-  // Mejorar el formato de las listas
-  html = html.replace(/<ul>/g, '<ul class="formatted-list">');
-  html = html.replace(/<ol>/g, '<ol class="formatted-list">');
-  
-  // Mejorar la apariencia de los elementos de lista
-  html = html.replace(/<li>/g, '<li class="formatted-list-item">');
-  
-  // Mejorar la apariencia de los elementos de código
-  html = html.replace(/<code>/g, '<code class="inline-code">');
-  
-  // Agregar clases a los elementos de eventos
-  html = html.replace(/<strong>(Lugar|Descripción):<\/strong>/g, 
-    '<strong class="event-detail-label">$1:</strong>');
-  
-  // Agregar clases a días de la semana
-  html = html.replace(/<strong>(Lunes|Martes|Miércoles|Jueves|Viernes|Sábado|Domingo):<\/strong>/g, 
-    '<strong class="event-day-label">$1:</strong>');
-  
-  // Envolver elementos de evento en contenedores para mejor presentación
-  html = html.replace(
-    /<li class="formatted-list-item"><strong class="event-day-label">(.*?)<\/strong>(.*?)<ul class="formatted-list">/g, 
-    '<li class="formatted-list-item event-item"><div class="event-header"><strong class="event-day-label">$1</strong>$2</div><ul class="formatted-list event-details">'
-  );
-  
-  return html;
 }
 
 function sendMessage() {
@@ -564,6 +644,120 @@ function handleMessagesLoaded(event) {
       showLoadMoreButton.value = messagesContainer.value.scrollTop <= scrollThreshold;
     }, 100);
   });
+}
+
+// Función para arreglar listas que no se renderizan correctamente
+function fixListsRendering() {
+  if (!messagesContainer.value) return;
+  
+  // Buscar todos los mensajes del bot
+  const botMessages = messagesContainer.value.querySelectorAll('.bot-message .message');
+  
+  botMessages.forEach(message => {
+    // Procesar negritas primero
+    processTextNodes(message);
+    
+    // Procesar caso específico de Cerca l'Acte
+    processCercaActeText(message);
+    
+    // Buscar listas numeradas y garantizar que se muestren correctamente
+    const numberRegex = /^\d+\.\s+(.*?)$/gm;
+    const messageHtml = message.innerHTML;
+    
+    // Convertir párrafos que contienen elementos numerados a listas ordenadas
+    let hasNumberedItems = false;
+    const paragraphs = message.querySelectorAll('p');
+    
+    paragraphs.forEach(paragraph => {
+      if (paragraph.textContent.match(/^\d+\.\s+/)) {
+        hasNumberedItems = true;
+        // Extraer el número
+        const match = paragraph.textContent.match(/^(\d+)\.\s+(.*?)$/);
+        if (match) {
+          const num = match[1];
+          const content = match[2];
+          
+          // Reemplazar el párrafo con un elemento de lista
+          const listItem = document.createElement('li');
+          listItem.textContent = content;
+          listItem.style.display = 'list-item';
+          listItem.style.listStyleType = 'decimal';
+          listItem.style.marginLeft = '20px';
+          listItem.setAttribute('value', num);
+          
+          // Si hay una lista ordenada anterior, añadir el elemento a ella
+          let orderedList = paragraph.previousElementSibling;
+          if (!orderedList || orderedList.tagName !== 'OL') {
+            orderedList = document.createElement('ol');
+            orderedList.style.display = 'block';
+            orderedList.style.listStyleType = 'decimal';
+            orderedList.style.marginLeft = '20px';
+            message.insertBefore(orderedList, paragraph);
+          }
+          
+          orderedList.appendChild(listItem);
+          paragraph.remove();
+        }
+      }
+    });
+    
+    // Buscar listas con viñetas y garantizar que se muestren correctamente
+    const bulletItems = message.querySelectorAll('p');
+    bulletItems.forEach(item => {
+      if (item.textContent.trim().startsWith('- ')) {
+        // Convertir a elemento de lista
+        const listItem = document.createElement('li');
+        listItem.textContent = item.textContent.replace(/^-\s+/, '');
+        listItem.style.display = 'list-item';
+        listItem.style.listStyleType = 'disc';
+        listItem.style.marginLeft = '20px';
+        
+        // Si hay una lista no ordenada anterior, añadir el elemento a ella
+        let unorderedList = item.previousElementSibling;
+        if (!unorderedList || unorderedList.tagName !== 'UL') {
+          unorderedList = document.createElement('ul');
+          unorderedList.style.display = 'block';
+          unorderedList.style.listStyleType = 'disc';
+          unorderedList.style.marginLeft = '20px';
+          message.insertBefore(unorderedList, item);
+        }
+        
+        unorderedList.appendChild(listItem);
+        item.remove();
+      }
+    });
+  });
+}
+
+// Función para procesar negritas en nodos de texto
+function processTextNodes(node) {
+  // Si es un nodo de texto
+  if (node.nodeType === 3) {
+    const text = node.textContent;
+    if (text.includes('**')) {
+      // Reemplazar **texto** con <strong>texto</strong>
+      const newHtml = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      if (newHtml !== text) {
+        const span = document.createElement('span');
+        span.innerHTML = newHtml;
+        node.parentNode.replaceChild(span, node);
+      }
+    }
+  } else if (node.nodeType === 1) {
+    // Si es un elemento, procesar sus hijos
+    // Convertir NodeList a Array para evitar problemas con mutaciones durante la iteración
+    Array.from(node.childNodes).forEach(child => {
+      processTextNodes(child);
+    });
+  }
+}
+
+// Método específico para Cerca l'Acte
+function processCercaActeText(message) {
+  const text = message.innerHTML;
+  if (text.includes('**Cerca l\'Acte**')) {
+    message.innerHTML = text.replace(/\*\*Cerca l'Acte\*\*/g, '<strong>Cerca l\'Acte</strong>');
+  }
 }
 </script>
 
@@ -964,7 +1158,7 @@ function handleMessagesLoaded(event) {
 
 /* Formatear listas anidadas */
 .formatted-list .formatted-list {
-  margin: 8px 0 8px 5px;
+  margin: 8px 0;
   padding-left: 15px;
   border-left: 1px solid rgba(144, 0, 0, 0.15);
 }
@@ -1265,5 +1459,192 @@ blockquote {
 .bot-message .message p {
   margin: 6px 0;
   white-space: normal;
+}
+
+/* Estilos específicos para listas numeradas */
+.numbered-list {
+  counter-reset: custom-counter;
+  list-style-type: decimal !important;
+  margin-left: 10px !important;
+  padding-left: 20px !important;
+}
+
+.numbered-list .formatted-list-item {
+  display: list-item !important;
+  list-style-position: outside;
+  position: relative;
+  margin-bottom: 8px !important;
+  padding-left: 5px !important;
+}
+
+.numbered-list .formatted-list-item::marker {
+  color: #900000;
+  font-weight: bold;
+}
+
+/* Estilos para listas anidadas dentro de listas numeradas */
+.numbered-list .formatted-list {
+  margin-top: 8px !important;
+  margin-left: 5px !important;
+  padding-left: 20px !important;
+}
+
+/* Elementos numerados específicos */
+.numbered-item {
+  display: list-item !important;
+  margin-bottom: 10px !important;
+}
+
+/* Mejoras para la visualización de listas en general */
+.formatted-list {
+  list-style-type: disc !important;
+  padding-left: 20px !important;
+}
+
+/* Override para listas anidadas dentro de eventos */
+.event-details.formatted-list {
+  list-style-type: none !important;
+  padding-left: 0 !important;
+}
+
+.formatted-list-item {
+  display: list-item;
+  padding-left: 5px !important;
+}
+
+/* Preservar bullets para listas con viñetas */
+ul.formatted-list > .formatted-list-item {
+  list-style-type: disc !important;
+  margin-left: 15px;
+}
+
+/* Garantizar que los guiones se vean correctamente en viñetas anidadas */
+.formatted-list .formatted-list .formatted-list-item {
+  list-style-type: circle !important;
+}
+
+.formatted-list .formatted-list .formatted-list .formatted-list-item {
+  list-style-type: square !important;
+}
+
+/* Estilos forzados para listas con viñetas y numeradas */
+.list-item-manual {
+  display: block;
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+  position: relative;
+}
+
+.numbered-item {
+  position: relative;
+  display: list-item !important;
+  list-style-type: decimal !important;
+  margin-left: 1.5em !important;
+  padding-left: 0.5em !important;
+}
+
+.bullet-item {
+  position: relative;
+  display: list-item !important;
+  list-style-type: disc !important;
+  margin-left: 1.5em !important;
+  padding-left: 0.5em !important;
+}
+
+.sublist-item-manual {
+  display: block;
+  margin: 0.25em 0 0.25em 1.5em;
+  padding-left: 1em;
+  position: relative;
+  border-left: 1px solid rgba(144, 0, 0, 0.1);
+}
+
+/* Estilos inline forzados */
+.formatted-list {
+  display: block !important;
+  margin-left: 20px !important;
+  padding-left: 20px !important;
+  list-style-position: outside !important;
+}
+
+.numbered-list {
+  list-style-type: decimal !important;
+}
+
+.bullet-list {
+  list-style-type: disc !important;
+}
+
+.formatted-list-item {
+  display: list-item !important;
+  margin-bottom: 6px !important;
+}
+
+/* Garantizar que los estilos específicos tengan alta prioridad */
+.bot-message .message ol {
+  display: block !important;
+  list-style-type: decimal !important;
+  margin-left: 20px !important;
+  padding-left: 20px !important;
+}
+
+.bot-message .message ul {
+  display: block !important;
+  list-style-type: disc !important;
+  margin-left: 20px !important;
+  padding-left: 20px !important;
+}
+
+.bot-message .message li {
+  display: list-item !important;
+  margin-bottom: 6px !important;
+}
+
+/* Estilos para texto en negrita */
+.bot-message .message strong,
+.bot-message .message b {
+  font-weight: 700 !important;
+  color: #900000 !important;
+  display: inline !important;
+}
+
+/* Asegurarse de que las negritas dentro de lista se muestren correctamente */
+.formatted-list-item strong,
+.list-item-manual strong,
+.bullet-item strong,
+.numbered-item strong {
+  font-weight: 700 !important;
+  color: #900000 !important;
+  display: inline !important;
+}
+
+/* Soporte específico para mensajes con el texto "Cerca l'Acte" */
+.bot-message .message p,
+.bot-message .message span {
+  font-weight: normal !important;
+}
+
+/* Estilos para cualquier texto con asteriscos */
+.bot-message .message {
+  /* Asegurar que los asteriscos no se muestran si no se procesaron */
+  white-space: normal !important;
+}
+
+/* Refuerzo para elementos strong */
+.bot-message .message strong {
+  font-weight: 700 !important;
+  color: #900000 !important;
+  display: inline !important;
+}
+
+/* Correcciones específicas para navegadores */
+@-moz-document url-prefix() {
+  .formatted-list { margin-left: 40px !important; }
+  .formatted-list-item { display: list-item !important; }
+}
+
+@media screen and (-webkit-min-device-pixel-ratio:0) {
+  .formatted-list { margin-left: 20px !important; }
+  .formatted-list-item { display: list-item !important; }
 }
 </style> 
