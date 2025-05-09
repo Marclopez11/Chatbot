@@ -353,32 +353,106 @@ function formatMessage(content) {
   if (!content) return '';
   
   try {
+    // Pre-procesar el texto para mejorar el formateo de listas con días
+    // Este paso es crucial para textos que vienen sin formato Markdown apropiado
+    content = preprocessEventLists(content);
+    
+    // Aplicar formato Markdown con configuración para preservar espacios
+    marked.setOptions({
+      headerIds: false,
+      mangle: false,
+      breaks: true,     // Convertir saltos de línea en <br>
+      gfm: true,        // GitHub Flavored Markdown para mejor compatibilidad
+      smartLists: true, // Listas más inteligentes
+      xhtml: true       // Cerrar tags (xhtml compliant)
+    });
+    
     // Aplicar formato Markdown
     let html = marked(content);
     
     // Sanitizar HTML para evitar XSS
     if (typeof DOMPurify !== 'undefined') {
-      html = DOMPurify.sanitize(html);
+      html = DOMPurify.sanitize(html, {
+        ADD_ATTR: ['target'], // Permitir atributo target para enlaces
+        ALLOW_DATA_ATTR: true // Permitir atributos data-*
+      });
     }
     
-    // Reemplazar títulos de secciones con versiones más estilizadas
-    html = html.replace(/<h3>(.*?)<\/h3>/g, '<div class="section-title">$1</div>');
-    
-    // Añadir clases a las listas para mejorar su apariencia
-    html = html.replace(/<ul>/g, '<ul class="formatted-list">');
-    html = html.replace(/<ol>/g, '<ol class="formatted-list">');
-    
-    // Mejorar la apariencia de los elementos de código
-    html = html.replace(/<code>/g, '<code class="inline-code">');
-    
-    // Destacar visualmente las frases clave
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="highlight">$1</strong>');
+    // Post-procesamiento para mejorar la estructura visual del HTML generado
+    html = postprocessHTML(html);
     
     return html;
   } catch (e) {
     console.error('Error al formatear mensaje:', e);
-    return content;
+    // En caso de error, aplicar formato básico para mantener los saltos de línea
+    return content.replace(/\n/g, '<br>');
   }
+}
+
+// Función para pre-procesar textos con formato de eventos
+function preprocessEventLists(text) {
+  // Si no contiene ningún formato de eventos, devolver tal cual
+  if (!text.includes('Lugar:') && !text.includes('Descripción:')) {
+    return text;
+  }
+  
+  // Asegurar que las líneas de "Día:" tienen formato de lista Markdown
+  const lines = text.split('\n');
+  let processed = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+    
+    // Detectar líneas de día de la semana (e.g., "Lunes: Formación...")
+    if (/^(?:Lunes|Martes|Miércoles|Jueves|Viernes|Sábado|Domingo):/i.test(line) && 
+        !line.startsWith('-') && !line.startsWith('*')) {
+      // Si la línea no tiene formato de lista, añadirlo
+      processed.push(`- **${line}**`);
+    } 
+    // Detectar líneas de detalles (Lugar, Descripción)
+    else if (line.startsWith('Lugar:') || line.startsWith('Descripción:')) {
+      // Formatear como sublista con guiones
+      processed.push(`  - **${line.split(':')[0]}:** ${line.split(':').slice(1).join(':').trim()}`);
+    } 
+    // Cualquier otra línea, mantenerla igual
+    else {
+      processed.push(line);
+    }
+  }
+  
+  return processed.join('\n');
+}
+
+// Función para post-procesar el HTML y mejorar la estructura visual
+function postprocessHTML(html) {
+  // Reemplazar títulos de secciones con versiones más estilizadas
+  html = html.replace(/<h3>(.*?)<\/h3>/g, '<div class="section-title">$1</div>');
+  
+  // Mejorar el formato de las listas
+  html = html.replace(/<ul>/g, '<ul class="formatted-list">');
+  html = html.replace(/<ol>/g, '<ol class="formatted-list">');
+  
+  // Mejorar la apariencia de los elementos de lista
+  html = html.replace(/<li>/g, '<li class="formatted-list-item">');
+  
+  // Mejorar la apariencia de los elementos de código
+  html = html.replace(/<code>/g, '<code class="inline-code">');
+  
+  // Agregar clases a los elementos de eventos
+  html = html.replace(/<strong>(Lugar|Descripción):<\/strong>/g, 
+    '<strong class="event-detail-label">$1:</strong>');
+  
+  // Agregar clases a días de la semana
+  html = html.replace(/<strong>(Lunes|Martes|Miércoles|Jueves|Viernes|Sábado|Domingo):<\/strong>/g, 
+    '<strong class="event-day-label">$1:</strong>');
+  
+  // Envolver elementos de evento en contenedores para mejor presentación
+  html = html.replace(
+    /<li class="formatted-list-item"><strong class="event-day-label">(.*?)<\/strong>(.*?)<ul class="formatted-list">/g, 
+    '<li class="formatted-list-item event-item"><div class="event-header"><strong class="event-day-label">$1</strong>$2</div><ul class="formatted-list event-details">'
+  );
+  
+  return html;
 }
 
 function sendMessage() {
@@ -802,10 +876,11 @@ function handleMessagesLoaded(event) {
 
 .bot-message {
   align-self: flex-start;
+  max-width: 85%; /* Aumentar el ancho máximo para las respuestas del bot */
 }
 
 .message {
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: 8px; /* Gencat usa bordes menos redondeados */
   font-size: 14px;
   line-height: 1.5;
@@ -830,6 +905,7 @@ function handleMessagesLoaded(event) {
   color: #333333; /* Negro actualizado */
   border-bottom-left-radius: 2px;
   border: 1px solid #E5E7EB;
+  width: 100%; /* Asegurar que el mensaje ocupe todo el ancho disponible */
 }
 
 .message-time {
@@ -876,13 +952,36 @@ function handleMessagesLoaded(event) {
 }
 
 .formatted-list {
-  margin: 4px 0;
+  margin: 6px 0;
   padding-left: 20px;
 }
 
-.formatted-list li {
-  margin: 4px 0;
+.formatted-list-item {
+  margin: 6px 0;
   position: relative;
+  line-height: 1.4;
+}
+
+/* Formatear listas anidadas */
+.formatted-list .formatted-list {
+  margin: 8px 0 8px 5px;
+  padding-left: 15px;
+  border-left: 1px solid rgba(144, 0, 0, 0.15);
+}
+
+/* Mejora del formato para elementos de definición (ubicación, descripción) */
+.formatted-list-item p {
+  margin: 2px 0 !important;
+}
+
+/* Aumentar el espacio entre items principales de la lista */
+.formatted-list > .formatted-list-item {
+  margin-bottom: 12px;
+}
+
+/* Último elemento de la lista sin margen */
+.formatted-list > .formatted-list-item:last-child {
+  margin-bottom: 4px;
 }
 
 .formatted-list li::marker {
@@ -1043,5 +1142,128 @@ blockquote {
 .load-more-container-leave-to {
   opacity: 0;
   transform: translateY(-20px);
+}
+
+/* Formato específico para eventos */
+.formatted-content strong {
+  display: inline-block;
+  color: #900000;
+}
+
+.formatted-content strong + br,
+.formatted-content br + br {
+  display: none; /* Eliminar espacios excesivos */
+}
+
+/* Mejorar la visualización de los detalles de eventos */
+.formatted-list .formatted-list {
+  position: relative;
+  margin-top: 3px;
+  margin-bottom: 8px;
+}
+
+/* Sangría uniforme para elementos anidados */
+.formatted-list-item ul.formatted-list {
+  margin-left: 0;
+  border-left: 2px solid rgba(144, 0, 0, 0.15);
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+/* Estilo para detalles de eventos (ubicación, descripción) */
+.formatted-list .formatted-list .formatted-list-item {
+  margin: 4px 0;
+  padding-left: 4px;
+}
+
+/* Mensaje maximizado para mostrar todo el contenido */
+.bot-message .message {
+  padding: 14px 18px;
+  max-width: 100%;
+}
+
+/* Añadir espacio después de los párrafos pero antes de listas */
+.formatted-content p + .formatted-list {
+  margin-top: 8px;
+}
+
+/* Espaciado para el día de la semana en negrita */
+.formatted-list-item > strong {
+  margin-right: 5px;
+}
+
+/* Estilos personalizados para formato de eventos */
+.event-item {
+  margin-bottom: 16px !important;
+  border-bottom: 1px solid rgba(144, 0, 0, 0.1);
+  padding-bottom: 12px;
+}
+
+.event-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0 !important;
+}
+
+.event-header {
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.event-day-label {
+  color: #900000;
+  font-weight: 700;
+  margin-right: 4px;
+  font-size: 15px;
+}
+
+.event-details {
+  background-color: rgba(144, 0, 0, 0.03);
+  border-radius: 4px;
+  padding: 8px 12px !important;
+  margin-left: 5px !important;
+  border-left: 2px solid rgba(144, 0, 0, 0.2);
+}
+
+.event-detail-label {
+  color: #333333;
+  font-weight: 600;
+  margin-right: 4px;
+  min-width: 90px;
+  display: inline-block;
+}
+
+/* Mejorar la separación entre los elementos de detalles */
+.event-details .formatted-list-item {
+  margin: 4px 0 !important;
+  display: flex;
+  align-items: flex-start;
+}
+
+/* Asegurar que el contenido sea legible */
+.bot-message .message {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333333;
+}
+
+/* Estilo adicional para garantizar que las listas se vean bien */
+.formatted-list {
+  list-style-type: none !important;
+  padding-left: 0 !important;
+}
+
+.formatted-list-item {
+  padding-left: 0 !important;
+}
+
+/* Restaurar viñetas para sublistas de detalles */
+.event-details.formatted-list {
+  list-style-type: none !important;
+}
+
+/* Evitar que el texto se corte */
+.bot-message .message p {
+  margin: 6px 0;
+  white-space: normal;
 }
 </style> 

@@ -37,16 +37,24 @@ class ChatBotController extends Controller
             // Preparar la estructura de mensajes que enviaremos a la API
             $messages = [];
             
-            // Si hay mensajes previos, los agregamos primero
+            // Si hay mensajes previos, los agregamos primero pero eliminando duplicados
             if (!empty($validated['messages']) && is_array($validated['messages'])) {
-                $messages = $validated['messages'];
+                $messages = $this->removeDuplicateMessages($validated['messages']);
             }
             
-            // Añadir el mensaje actual del usuario
-            $messages[] = [
+            // Añadir el mensaje actual del usuario (solo si no es duplicado del último)
+            $userMessage = [
                 'role' => 'user',
                 'content' => $validated['message']
             ];
+            
+            // Verificar que el último mensaje no sea idéntico al que se está enviando
+            $lastMessage = end($messages);
+            if (!$lastMessage || 
+                $lastMessage['role'] !== 'user' || 
+                $lastMessage['content'] !== $validated['message']) {
+                $messages[] = $userMessage;
+            }
             
             $payload = [
                 'model' => $this->model,
@@ -111,5 +119,33 @@ class ChatBotController extends Controller
                 'error' => 'S\'ha produït un error inesperat',
             ], 500);
         }
+    }
+    
+    /**
+     * Elimina mensajes duplicados consecutivos de un array de mensajes
+     * 
+     * @param array $messages Array de mensajes
+     * @return array Array de mensajes sin duplicados consecutivos
+     */
+    private function removeDuplicateMessages(array $messages): array
+    {
+        $result = [];
+        $lastMessage = null;
+        
+        foreach ($messages as $message) {
+            // Verificar si el mensaje actual es igual al anterior
+            if ($lastMessage && 
+                $lastMessage['role'] === $message['role'] && 
+                $lastMessage['content'] === $message['content']) {
+                // Si es duplicado, omitir
+                continue;
+            }
+            
+            // Agregar mensaje al resultado y actualizar referencia
+            $result[] = $message;
+            $lastMessage = $message;
+        }
+        
+        return $result;
     }
 } 
