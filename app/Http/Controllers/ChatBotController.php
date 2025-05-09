@@ -48,14 +48,23 @@ class ChatBotController extends Controller
                 'content' => $validated['message']
             ];
             
+            $payload = [
+                'model' => $this->model,
+                'messages' => $messages,
+                'stream' => false,
+                'knowledge' => [
+                    [
+                        'type' => 'collection',
+                        'id' => '47da7a1e-1eb1-4789-a566-dff63f0ff9e9'
+                    ]
+                ],
+                'tool_ids' => ['consultar_actos']
+            ];
+            
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiToken,
                 'Content-Type' => 'application/json',
-            ])->post($this->apiUrl, [
-                'model' => $this->model,
-                'messages' => $messages,
-                'stream' => false
-            ]);
+            ])->post($this->apiUrl, $payload);
             
             if ($response->successful()) {
                 $responseData = $response->json();

@@ -10,6 +10,8 @@ Este proyecto implementa un chatbot interactivo con memoria de contexto utilizan
 - 💾 **Persistencia de datos**: Almacena conversaciones en localStorage
 - 🎨 **Diseño moderno y responsive**: Adaptado a dispositivos móviles y escritorio
 - 📱 **Experiencia de chat inmersiva**: Similar a aplicaciones populares de mensajería
+- 📚 **Integración con bases de conocimiento**: Conecta con colecciones de documentos para proporcionar respuestas más precisas
+- 🛠️ **Herramientas especializadas**: Acceso a herramientas externas como "consultar_actos" para obtener información específica
 
 ## Requisitos
 
@@ -110,7 +112,14 @@ El chatbot funciona de la siguiente manera:
     { "role": "assistant", "content": "Respuesta del asistente" },
     { "role": "user", "content": "Nuevo mensaje" }
   ],
-  "stream": false
+  "stream": false,
+  "knowledge": [
+    {
+      "type": "collection",
+      "id": "****"
+    }
+  ],
+  "tool_ids": ["consultar_actos"]
 }
 ```
 
@@ -121,12 +130,27 @@ El chatbot funciona de la siguiente manera:
     - `message`: Texto del mensaje (requerido)
     - `sessionId`: ID de la sesión (requerido)
     - `messages`: Array con el historial de la conversación (opcional)
+  - Respuesta:
+    - `response`: Texto de respuesta del chatbot
+    - `messages`: Lista actualizada de mensajes con la conversación completa
+
+## Integración con bases de conocimiento
+
+El chatbot está configurado para acceder a una colección específica de documentos con ID `****`. Esta integración permite que el chatbot proporcione respuestas basadas en información contenida en esa colección, mejorando la precisión y relevancia de las respuestas.
+
+## Herramientas disponibles
+
+El chatbot tiene acceso a la herramienta `consultar_actos`, que le permite consultar información sobre eventos o actividades. Esta herramienta se activa automáticamente cuando el sistema detecta que el usuario está solicitando información relacionada con eventos.
 
 ## Personalización
 
 ### Estilos
 
 Los estilos del chatbot se pueden personalizar modificando los archivos CSS en los componentes Vue. La interfaz utiliza variables de color que se pueden ajustar para coincidir con la identidad visual de tu proyecto.
+
+### Configuración adicional
+
+Para modificar la base de conocimiento o las herramientas utilizadas, edita el archivo `app/Http/Controllers/ChatBotController.php`.
 
 ## Licencia
 
