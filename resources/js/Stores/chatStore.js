@@ -13,6 +13,7 @@ export const useChatStore = defineStore('chat', {
         isLoadingMore: false,    // Indicador de carga de mensajes adicionales
         isOpen: false,
         hasMoreMessages: false,  // Indica si hay más mensajes para cargar
+        lastAuthState: null,     // Guarda el último estado de autenticación conocido
     }),
     
     actions: {
@@ -55,6 +56,90 @@ export const useChatStore = defineStore('chat', {
             // Load chat visibility state
             const chatOpenState = localStorage.getItem('chat_is_open');
             this.isOpen = chatOpenState ? JSON.parse(chatOpenState) : false;
+            
+            // Guardar el estado actual de autenticación
+            this.checkAuthState();
+        },
+        
+        // Verifica si el estado de autenticación ha cambiado
+        checkAuthState() {
+            // Verificar si el elemento específico existe en la página
+            const isAuthenticated = document.querySelector('[data-user-authenticated]') !== null;
+            
+            // Si no hay un estado previo guardado, guardamos el actual
+            if (this.lastAuthState === null) {
+                this.lastAuthState = isAuthenticated;
+                return false; // No hay cambio, es la inicialización
+            }
+            
+            // Verificar si ha habido un cambio en la autenticación
+            const authChanged = this.lastAuthState !== isAuthenticated;
+            
+            // Actualizar el estado guardado
+            this.lastAuthState = isAuthenticated;
+            
+            // Si ha cambiado, reiniciar el chat con el nuevo prompt
+            if (authChanged) {
+                console.log('Estado de autenticación cambiado, reiniciando el chat');
+                this.resetChatWithServer();
+                return true; // Hubo un cambio
+            }
+            
+            return false; // No hubo cambio
+        },
+        
+        // Reinicia el chat completamente consultando al servidor para obtener el prompt adecuado
+        async resetChatWithServer() {
+            try {
+                this.isLoading = true;
+                
+                // Hacer una solicitud al servidor para obtener el prompt correcto
+                const response = await axios.post('/api/chatbot/reset', {
+                    sessionId: this.sessionId
+                });
+                
+                if (response.data && response.data.messages) {
+                    // Limpiar mensajes existentes
+                    this.allMessages = [];
+                    
+                    // Guardar el mensaje de bienvenida del sistema
+                    const welcomeMessage = {
+                        content: response.data.response,
+                        sender: 'bot',
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    // Añadir a la lista de mensajes para visualización
+                    this.allMessages.push(welcomeMessage);
+                    
+                    // Actualizar los mensajes de contexto con los nuevos incluyendo el sistema
+                    this.contextMessages = response.data.messages;
+                    
+                    // Actualizar mensajes mostrados
+                    this._updateDisplayedMessages();
+                    
+                    // Guardar en localStorage
+                    this._saveToLocalStorage();
+                }
+            } catch (error) {
+                console.error('Error reiniciando el chat:', error);
+                
+                // Método alternativo: reiniciar localmente si falla la comunicación con el servidor
+                this.clearChat();
+                
+                // Añadir un mensaje genérico para informar al usuario
+                const fallbackMessage = {
+                    content: 'El xat s\'ha reiniciat. Com puc ajudar-te?',
+                    sender: 'bot',
+                    timestamp: new Date().toISOString()
+                };
+                
+                this.allMessages.push(fallbackMessage);
+                this._updateDisplayedMessages();
+                this._saveToLocalStorage();
+            } finally {
+                this.isLoading = false;
+            }
         },
         
         // Crea mensajes de contexto a partir de los mensajes existentes
@@ -68,6 +153,11 @@ export const useChatStore = defineStore('chat', {
         toggleChat() {
             this.isOpen = !this.isOpen;
             localStorage.setItem('chat_is_open', JSON.stringify(this.isOpen));
+            
+            // Verificar el estado de autenticación al abrir/cerrar el chat
+            if (this.isOpen) {
+                this.checkAuthState();
+            }
         },
         
         // Actualiza los mensajes mostrados basados en la página actual
@@ -137,6 +227,9 @@ export const useChatStore = defineStore('chat', {
         
         async sendMessage(message) {
             if (!message.trim()) return;
+            
+            // Verificar si ha cambiado el estado de autenticación
+            const authChanged = this.checkAuthState();
             
             // Add user message to chat
             const userMessage = {

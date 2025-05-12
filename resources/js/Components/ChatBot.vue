@@ -163,6 +163,9 @@ onMounted(() => {
   // Marcar como montado inmediatamente
   mounted.value = true;
   
+  // Verificar el estado de autenticación al montar
+  chatStore.checkAuthState();
+  
   // Usar requestAnimationFrame para asegurar que el navegador procese primero
   // todos los elementos antes de intentar hacer scroll
   requestAnimationFrame(() => {
@@ -383,7 +386,63 @@ function formatMessage(content) {
     // 1. Procesamos negritas
     let processedContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     
-    // 2. Convertir directamente a HTML - Enfoque más radical y directo
+    // 2. Procesamos enlaces en formato Markdown: [texto](url)
+    processedContent = processedContent.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(match, text, url) {
+      // Detectar si es una URL del portal de actos y no hay texto personalizado significativo
+      if (url.includes('assistentsactes.salut.gencat.cat')) {
+        // Si el texto es simplemente la URL o algo genérico, utilizamos nuestro texto descriptivo
+        if (text === url || text.includes('https://') || text === 'aquí' || text === 'link' || text === 'enlace') {
+          if (url.includes('/agenda')) {
+            text = "Agenda d'Actes";
+          } else {
+            text = "Portal d'Actes";
+          }
+        }
+      }
+      
+      return `<a href="${url}" title="${url}" target="_blank" style="color:#900000; text-decoration:underline; font-weight:600; display:inline-block;">${text}</a>`;
+    });
+    
+    // 3. Detectar URLs simples y convertirlas en enlaces
+    // Regex para URLs que no estén ya dentro de tags HTML
+    const urlRegex = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
+    
+    // Esta función verifica si la URL es parte de un enlace existente para evitar anidamiento
+    processedContent = processedContent.replace(urlRegex, function(match) {
+      // Verificar si la URL ya está dentro de una etiqueta <a>
+      const isInLink = /<a\s[^>]*href=["'][^"']*$/i.test(processedContent.substring(0, processedContent.indexOf(match)));
+      
+      if (isInLink) return match;
+      
+      // Acortar la URL para mostrarla de manera más amigable
+      let displayUrl = match;
+      try {
+        const urlObj = new URL(match);
+        
+        // Para el dominio específico, usamos un texto descriptivo personalizado
+        if (urlObj.hostname === 'assistentsactes.salut.gencat.cat') {
+          if (urlObj.pathname.includes('/agenda')) {
+            displayUrl = "Agenda d'Actes";
+          } else {
+            displayUrl = "Portal d'Actes";
+          }
+        } else {
+          // Para otros dominios, mostramos solo el hostname
+          displayUrl = urlObj.hostname;
+          // Si hay una ruta significativa, añadir un indicador
+          if (urlObj.pathname && urlObj.pathname.length > 1) {
+            displayUrl += '/...';
+          }
+        }
+      } catch (e) {
+        // Si hay un error al parsear la URL, mostrar la original
+        console.error('Error parsing URL:', e);
+      }
+      
+      return `<a href="${match}" title="${match}" target="_blank" style="color:#900000; text-decoration:underline; font-weight:600; display:inline-block;">${displayUrl}</a>`;
+    });
+    
+    // 4. Convertir directamente a HTML - Enfoque más radical y directo
     
     // Capturar el patrón de bullet points y sublistas
     const lines = processedContent.split('\n');
@@ -527,16 +586,64 @@ function formatMessage(content) {
     htmlContent = htmlContent.replace(/<li class="item-numerado-custom"/g, 
       '<li style="display:list-item !important; margin-bottom:6px !important;"');
     
+    // Estilizar enlaces de manera global
+    htmlContent = htmlContent.replace(/<a /g, '<a style="color:#900000; text-decoration:underline; font-weight:600; display:inline-block;" ');
+    
     return htmlContent;
   } catch (e) {
     console.error('Error al formatear mensaje:', e);
-    // En caso de error, aplicar formato básico 
-    return `<div style="white-space:pre-wrap;">${content.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight:700 !important; color:#900000 !important;">$1</strong>')}</div>`;
+    // En caso de error, aplicar formato básico, incluyendo procesamiento de enlaces
+    const basicContent = content
+      .replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight:700 !important; color:#900000 !important;">$1</strong>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#900000; text-decoration:underline; font-weight:600;">$1</a>');
+      
+    // Procesar URLs planas
+    let processedBasicContent = basicContent;
+    const basicUrlRegex = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
+    
+    // Función para reemplazar URLs que no estén ya en enlaces
+    processedBasicContent = processedBasicContent.replace(basicUrlRegex, function(match) {
+      // Intento básico para evitar reemplazar URLs que ya son enlaces
+      if (processedBasicContent.indexOf(`href="${match}"`) > -1) {
+        return match;
+      }
+      
+      // Acortar la URL para mostrarla de manera más amigable
+      let displayUrl = match;
+      try {
+        const urlObj = new URL(match);
+        
+        // Para el dominio específico, usamos un texto descriptivo personalizado
+        if (urlObj.hostname === 'assistentsactes.salut.gencat.cat') {
+          if (urlObj.pathname.includes('/agenda')) {
+            displayUrl = "Agenda d'Actes";
+          } else {
+            displayUrl = "Portal d'Actes";
+          }
+        } else {
+          // Para otros dominios, mostramos solo el hostname
+          displayUrl = urlObj.hostname;
+          // Si hay una ruta significativa, añadir un indicador
+          if (urlObj.pathname && urlObj.pathname.length > 1) {
+            displayUrl += '/...';
+          }
+        }
+      } catch (e) {
+        // Si hay un error al parsear la URL, mostrar la original
+      }
+      
+      return `<a href="${match}" title="${match}" target="_blank" style="color:#900000; text-decoration:underline; font-weight:600;">${displayUrl}</a>`;
+    });
+    
+    return `<div style="white-space:pre-wrap;">${processedBasicContent}</div>`;
   }
 }
 
 function sendMessage() {
   if (newMessage.value.trim() === '' || isLoading.value) return;
+  
+  // Verificar el estado de autenticación antes de enviar el mensaje
+  chatStore.checkAuthState();
   
   // Registrar si el input tenía el foco antes de enviar
   const hadFocus = document.activeElement === messageInput.value;
@@ -563,6 +670,9 @@ function sendMessage() {
 }
 
 function toggleChat() {
+  // Verificar el estado de autenticación al abrir/cerrar el chat
+  chatStore.checkAuthState();
+  
   chatStore.toggleChat();
   
   // Si se está abriendo el chat, enfocar el input después de que sea visible
@@ -1079,6 +1189,8 @@ function processCercaActeText(message) {
   font-size: 14px;
   line-height: 1.5;
   word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -1222,11 +1334,46 @@ blockquote {
   color: #900000;
   text-decoration: none;
   font-weight: 600;
-  transition: text-decoration 0.2s;
+  transition: all 0.25s ease;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  margin: 2px 0;
+  border-radius: 4px;
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: break-all;
+  background-color: rgba(144, 0, 0, 0.08);
+  border: 1px solid rgba(144, 0, 0, 0.2);
+}
+
+.bot-message .message a::before {
+  content: "🔗";
+  font-size: 0.85em;
+  margin-right: 6px;
+  opacity: 0.85;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Estilo especial para links a la agenda de actos */
+.bot-message .message a[title*="assistentsactes.salut.gencat.cat/agenda"]::before {
+  content: "📅";
 }
 
 .bot-message .message a:hover {
-  text-decoration: underline;
+  background-color: rgba(144, 0, 0, 0.15);
+  color: #700000;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(144, 0, 0, 0.15);
+}
+
+.bot-message .message a:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(144, 0, 0, 0.1);
 }
 
 /* Indicador de carga elegante */

@@ -27,5 +27,6 @@ Route::middleware('auth')->group(function () {
 
 // Chatbot routes
 Route::post('/api/chatbot/message', [ChatBotController::class, 'processMessage']);
+Route::post('/api/chatbot/reset', [ChatBotController::class, 'resetChat']);
 
 require __DIR__.'/auth.php';
