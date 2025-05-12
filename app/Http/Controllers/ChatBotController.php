@@ -55,6 +55,19 @@ class ChatBotController extends Controller
                 $lastMessage['content'] !== $validated['message']) {
                 $messages[] = $userMessage;
             }
+
+            $systemPrompt = auth()->check()
+                            ? file_get_contents(base_path('prompts/assistactes_admin.txt'))
+                            : file_get_contents(base_path('prompts/assistactes_public.txt'));
+
+
+            $messages = [
+                [
+                    'role' => 'system',
+                    'content' => $systemPrompt
+                ],
+                ...$messages // afegeixes aquí els missatges anteriors, si n’hi ha
+            ];
             
             $payload = [
                 'model' => $this->model,
@@ -63,10 +76,19 @@ class ChatBotController extends Controller
                 'knowledge' => [
                     [
                         'type' => 'collection',
-                        'id' => '47da7a1e-1eb1-4789-a566-dff63f0ff9e9'
+                        'id' => auth()->check() ? env('CHATBOT_COLLECTION_NAME_ADMIN') : env('CHATBOT_COLLECTION_NAME_USER')
                     ]
                 ],
-                'tool_ids' => ['consultar_actos']
+                'tool_ids' => ['consultar_actos'],
+                'tool_choice' => 'required',
+                'temperature' => 1,
+                'top_p' => 1,
+                'max_tokens' => 1000,
+                'presence_penalty' => 0,
+                'frequency_penalty' => 0,
+                'seed' => 42,
+                'stop' => null,
+                
             ];
             
             $response = Http::withHeaders([
