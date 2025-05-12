@@ -91,7 +91,7 @@ class ChatBotController extends Controller
                         'id' => $isAuthenticated ? env('CHATBOT_COLLECTION_NAME_ADMIN') : env('CHATBOT_COLLECTION_NAME_USER')
                     ]
                 ],
-                'tool_ids' => $isAuthenticated ? ['consultar_user'] : ['consultar_actos'],
+                'tool_ids' => $isAuthenticated ? ['consultar_user'] : ['public_actos'],
                 'tool_choice' => 'required',
                 'temperature' => 1,
                 'top_p' => 1,
